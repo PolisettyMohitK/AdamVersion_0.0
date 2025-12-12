@@ -1,7 +1,7 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
-import { generateAvatarResponse } from "./modules/gemini.mjs";
+import { generateAvatarResponse, generateChatSummary } from "./modules/gemini.mjs";
 import { lipSync } from "./modules/lip-sync.mjs";
 
 dotenv.config();
@@ -151,6 +151,31 @@ app.post("/sts", async (req, res) => {
     } else {
       res.status(500).send({ error: "Failed to generate avatar response" });
     }
+  }
+});
+
+// New endpoint for generating chat summaries
+app.post("/summary", async (req, res) => {
+  try {
+    const { chatHistory } = req.body;
+    
+    if (!chatHistory || !Array.isArray(chatHistory)) {
+      return res.status(400).send({ error: "Invalid chat history provided" });
+    }
+    
+    if (chatHistory.length === 0) {
+      return res.send({ summary: "The conversation is empty." });
+    }
+    
+    console.log("Received summary request with", chatHistory.length, "messages");
+    
+    // Generate summary using Gemini
+    const summary = await generateChatSummary(chatHistory);
+    
+    res.send({ summary });
+  } catch (error) {
+    console.error("Error generating summary:", error);
+    res.status(500).send({ error: "Failed to generate summary" });
   }
 });
 

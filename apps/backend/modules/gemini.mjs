@@ -405,4 +405,47 @@ async function generateAvatarResponse(question) {
   }
 }
 
-export { generateAvatarResponse };
+// New function for generating chat summaries
+async function generateChatSummary(chatHistory) {
+  try {
+    console.log("Generating summary for chat history...");
+    
+    // Use the gemini 2.5 flash model as requested
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    
+    // Format the chat history for the prompt
+    const formattedHistory = chatHistory.map(msg => {
+      const sender = msg.sender === 'user' ? 'User' : msg.sender === 'ai' ? 'AI Assistant' : 'System';
+      return `${sender}: ${msg.text}`;
+    }).join('\n');
+    
+    const summaryTemplate = `
+    You are an intelligent and expressive AI assistant. Your task is to create a concise, informative summary of the conversation between a user and an AI assistant.
+    
+    Please follow these guidelines:
+    1. Provide a clear overview of the main topics discussed
+    2. Highlight any important decisions, agreements, or conclusions reached
+    3. Mention any questions asked and answers provided
+    4. Keep the summary concise but comprehensive
+    5. Use natural language and avoid technical jargon when possible
+    
+    Conversation History:
+    ${formattedHistory}
+    
+    Please provide a summary of this conversation in a natural, readable format.
+    `;
+    
+    console.log("Sending summary prompt to Gemini...");
+    const result = await model.generateContent(summaryTemplate);
+    const response = await result.response;
+    const summaryText = response.text();
+    
+    console.log("Successfully generated chat summary");
+    return summaryText;
+  } catch (error) {
+    console.error("Error generating chat summary:", error);
+    throw error;
+  }
+}
+
+export { generateAvatarResponse, generateChatSummary };

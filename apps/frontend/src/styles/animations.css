@@ -9,6 +9,17 @@
   }
 }
 
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
 @keyframes slideInLeft {
   from {
     opacity: 0;
@@ -22,6 +33,10 @@
 
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-fadeOut {
+  animation: fadeOut 0.3s ease-out forwards;
 }
 
 .animate-slideInLeft {

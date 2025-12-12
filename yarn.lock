@@ -1548,7 +1548,7 @@ digest-fetch@^1.3.0:
     base-64 "^0.1.0"
     md5 "^2.3.0"
 
-"digital-human-backend@file:D:\\adam-project\\apps\\backend":
+"digital-human-backend@file:E:\\Project-Adam\\apps\\backend":
   version "1.0.0"
   resolved "file:apps/backend"
   dependencies:
@@ -1564,7 +1564,7 @@ digest-fetch@^1.3.0:
     say "^0.16.0"
     zod "^3.22.4"
 
-"digital-human-frontend@file:D:\\adam-project\\apps\\frontend":
+"digital-human-frontend@file:E:\\Project-Adam\\apps\\frontend":
   version "1.0.0"
   resolved "file:apps/frontend"
   dependencies:
