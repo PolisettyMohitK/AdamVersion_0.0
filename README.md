@@ -31,9 +31,7 @@ The system operates through two primary workflows, depending on whether the user
 6. **Lip Sync Generation:** The audio is processed by Rhubarb Lip Sync to generate viseme metadata.
 7. **Avatar Animation:** The avatar displays the response with synchronized lip movements and appropriate facial expressions.
 
-<div align="center">
-  <img src="resources/architecture.drawio.svg" alt="System Architecture" width="100%">
-</div>
+
 
 ## Getting Started
 
