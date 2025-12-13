@@ -453,8 +453,8 @@ async function generateRetentionTest(chatHistory) {
   try {
     console.log("Generating retention test based on chat history...");
     
-    // Use the gemini 2.5 flash model as requested
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // Use gemini-1.5-flash for higher quota (1500 requests/day vs 20 for 2.5-flash)
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     // Format the chat history for the prompt
     const formattedHistory = chatHistory.map(msg => {
@@ -544,8 +544,8 @@ async function generatePersonalizedFeedback(testResults, chatHistory) {
   try {
     console.log("Generating personalized feedback based on test results...");
     
-    // Use the gemini 2.5 flash model as requested
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // Use gemini-1.5-flash for higher quota
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     // Format the chat history for the prompt
     const formattedHistory = chatHistory.map(msg => {
