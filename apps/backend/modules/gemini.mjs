@@ -637,14 +637,37 @@ function extractCoreSubject(question) {
   return words.slice(startIndex, endIndex).join(' ');
 }
 
-async function generateAvatarResponse(question) {
+async function generateAvatarResponse(question, language = "english") {
   try {
     console.log("Processing question:", question);
+    console.log("Language:", language);
     
     // Use the gemini 2.5 flash model as requested
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
-    const prompt = `${template}\n\nHuman: ${question}\nAI:`;
+    // Adjust template based on language
+    let languageSpecificTemplate = template;
+    if (language === "hindi") {
+      // For Hindi, respond in Hindi and limit to 3-4 sentences
+      languageSpecificTemplate = `${template}
+
+CRITICAL INSTRUCTIONS:
+- You MUST respond entirely in Hindi language (Devanagari script).
+- Keep your answer concise and limit it to 3-4 sentences only.
+- Be brief and to the point.
+- All text in the "text" field must be in Hindi.`;
+    } else if (language === "telugu") {
+      // For Telugu, respond in Telugu and limit to 3-4 sentences
+      languageSpecificTemplate = `${template}
+
+CRITICAL INSTRUCTIONS:
+- You MUST respond entirely in Telugu language (Telugu script).
+- Keep your answer concise and limit it to 3-4 sentences only.
+- Be brief and to the point.
+- All text in the "text" field must be in Telugu.`;
+    }
+    
+    const prompt = `${languageSpecificTemplate}\n\nHuman: ${question}\nAI:`;
     console.log("Sending prompt to Gemini:", prompt.substring(0, 100) + "...");
     
     const result = await model.generateContent(prompt);
@@ -716,12 +739,20 @@ async function generateAvatarResponse(question) {
   }
 }
 
+<<<<<<< Updated upstream
 // New function for generating chat summaries
+=======
+// Function to generate chat summary
+>>>>>>> Stashed changes
 async function generateChatSummary(chatHistory) {
   try {
     console.log("Generating summary for chat history...");
     
+<<<<<<< Updated upstream
     // Use the gemini 2.5 flash model as requested
+=======
+    // Use the gemini 2.5 flash model
+>>>>>>> Stashed changes
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
     // Format the chat history for the prompt
@@ -730,6 +761,7 @@ async function generateChatSummary(chatHistory) {
       return `${sender}: ${msg.text}`;
     }).join('\n');
     
+<<<<<<< Updated upstream
     const summaryTemplate = `
     You are an intelligent and expressive AI assistant. Your task is to create a concise, informative summary of the conversation between a user and an AI assistant.
     
@@ -748,17 +780,41 @@ async function generateChatSummary(chatHistory) {
     
     console.log("Sending summary prompt to Gemini...");
     const result = await model.generateContent(summaryTemplate);
+=======
+    const summaryPrompt = `You are an intelligent AI assistant. Your task is to create a concise, informative summary of the conversation between a user and an AI assistant.
+
+Please follow these guidelines:
+1. Provide a clear overview of the main topics discussed
+2. Highlight any important decisions, agreements, or conclusions reached
+3. Mention any questions asked and answers provided
+4. Keep the summary concise but comprehensive (2-4 paragraphs)
+5. Use natural language and avoid technical jargon when possible
+6. Focus on the key insights and takeaways from the conversation
+
+Conversation History:
+${formattedHistory}
+
+Please provide a summary of this conversation in a natural, readable format.`;
+    
+    console.log("Sending summary prompt to Gemini...");
+    const result = await model.generateContent(summaryPrompt);
+>>>>>>> Stashed changes
     const response = await result.response;
     const summaryText = response.text();
     
     console.log("Successfully generated chat summary");
+<<<<<<< Updated upstream
     return summaryText;
+=======
+    return summaryText.trim();
+>>>>>>> Stashed changes
   } catch (error) {
     console.error("Error generating chat summary:", error);
     throw error;
   }
 }
 
+<<<<<<< Updated upstream
 // New function for generating retention tests
 async function generateRetentionTest(chatHistory) {
   try {
@@ -901,3 +957,6 @@ async function generatePersonalizedFeedback(testResults, chatHistory) {
 }
 
 export { generateAvatarResponse, generateChatSummary, generateRetentionTest, generatePersonalizedFeedback, extractCoreSubject, fetchWikimediaImages, generateImageUrls };
+=======
+export { generateAvatarResponse, generateChatSummary };
+>>>>>>> Stashed changes

@@ -27,16 +27,23 @@ export function Avatar(props) {
     setAnimation(message.animation || "TalkingOne");
     
     // Set lipsync data
+    console.log("Setting lipsync data:", message.lipsync);
+    if (message.lipsync && message.lipsync.mouthCues) {
+      console.log(`Lip sync has ${message.lipsync.mouthCues.length} mouth cues`);
+    }
     setLipsync(message.lipsync);
     
     // Play audio if available
     if (message.audio) {
       try {
-        // Determine the correct MIME type based on the audio data
-        // Since we're creating WAV files, we should use audio/wav
-        const mimeType = "audio/wav";
+        // Use format from backend if available, otherwise try MP3 first (Google TTS), then WAV (Windows TTS)
+        const audioFormat = message.audioFormat || "mp3";
+        const mimeType = audioFormat === "wav" ? "audio/wav" : "audio/mpeg";
+        console.log(`Creating audio with format: ${audioFormat} (MIME: ${mimeType})`);
+        
         const audio = new Audio(`data:${mimeType};base64,${message.audio}`);
         
+<<<<<<< Updated upstream
         // Add event listeners for debugging
         audio.addEventListener('loadedmetadata', () => {
           console.log(`Audio duration: ${audio.duration}`);
@@ -53,16 +60,78 @@ export function Avatar(props) {
         
         audio.play().catch(error => {
           console.error("Error playing audio:", error);
+=======
+        // Handle audio loading and playback
+        const handleCanPlay = () => {
+          console.log("Audio ready, duration:", audio.duration, "format:", audioFormat);
+          audio.play().catch(error => {
+            console.error("Error playing audio:", error);
+            // Try alternative format as fallback
+            const altFormat = audioFormat === "wav" ? "mp3" : "wav";
+            const altMimeType = altFormat === "wav" ? "audio/wav" : "audio/mpeg";
+            console.log(`Trying fallback format: ${altFormat}`);
+            const fallbackAudio = new Audio(`data:${altMimeType};base64,${message.audio}`);
+            fallbackAudio.addEventListener('canplay', () => {
+              fallbackAudio.play().catch(err => {
+                console.error(`${altFormat} format also failed:`, err);
+                onMessagePlayed();
+              });
+            }, { once: true });
+            fallbackAudio.addEventListener('error', () => {
+              console.error("Both formats failed");
+              onMessagePlayed();
+            });
+            setAudio(fallbackAudio);
+            setCurrentAudio(fallbackAudio);
+            fallbackAudio.onended = () => {
+              console.log("Audio finished playing");
+              onMessagePlayed();
+            };
+          });
+        };
+        
+        audio.addEventListener('canplay', handleCanPlay, { once: true });
+        audio.addEventListener('loadedmetadata', () => {
+          console.log("Audio metadata loaded, duration:", audio.duration);
+>>>>>>> Stashed changes
         });
+        
+        audio.addEventListener('error', (e) => {
+          console.error(`${audioFormat} audio error, trying alternative format:`, e);
+          // Try alternative format as fallback
+          const altFormat = audioFormat === "wav" ? "mp3" : "wav";
+          const altMimeType = altFormat === "wav" ? "audio/wav" : "audio/mpeg";
+          const fallbackAudio = new Audio(`data:${altMimeType};base64,${message.audio}`);
+          fallbackAudio.addEventListener('canplay', () => {
+            fallbackAudio.play().catch(err => {
+              console.error(`${altFormat} format also failed:`, err);
+              onMessagePlayed();
+            });
+          }, { once: true });
+          fallbackAudio.addEventListener('error', () => {
+            console.error("Both formats failed");
+            onMessagePlayed();
+          });
+          setAudio(fallbackAudio);
+          setCurrentAudio(fallbackAudio);
+          fallbackAudio.onended = () => {
+            console.log("Audio finished playing");
+            onMessagePlayed();
+          };
+        });
+        
         setAudio(audio);
-        setCurrentAudio(audio); // Set the current audio in the context
+        setCurrentAudio(audio);
+        
+        // Load the audio
+        audio.load();
+        
         audio.onended = () => {
           console.log("Audio finished playing");
           onMessagePlayed();
         };
       } catch (error) {
-        console.error("Error creating or playing audio:", error);
-        // Still call onMessagePlayed to continue the flow
+        console.error("Error creating audio:", error);
         onMessagePlayed();
       }
     } else {
@@ -142,6 +211,7 @@ export function Avatar(props) {
     lerpMorphTarget("eyeBlinkLeft", blink ? 1 : 0, 0.5);
     lerpMorphTarget("eyeBlinkRight", blink ? 1 : 0, 0.5);
 
+<<<<<<< Updated upstream
     // Handle lipsync with direct processing (no state delay)
     if (message && lipsync && audio) {
       try {
@@ -178,6 +248,73 @@ export function Avatar(props) {
                 lerpMorphTarget(target, 0.4, 0.2);
                 activeTargets.add(target);
               }
+=======
+    // Handle lipsync - sync with audio playback throughout entire conversation
+    // Based on reference implementation: https://github.com/asanchezyali/talking-avatar-with-ai
+    const appliedMorphTargets = [];
+    if (message && lipsync && audio) {
+      try {
+        // Check if audio is ready and playing
+        const isAudioReady = audio.readyState >= 2;
+        const isAudioPlaying = !audio.paused && !audio.ended;
+        
+        if (isAudioReady && isAudioPlaying) {
+          const currentAudioTime = audio.currentTime;
+          
+          // Only process if audio time is valid and positive
+          if (!isNaN(currentAudioTime) && isFinite(currentAudioTime) && currentAudioTime >= 0) {
+            let activeViseme = null;
+            
+            if (lipsync.mouthCues && Array.isArray(lipsync.mouthCues) && lipsync.mouthCues.length > 0) {
+              // Process all cues - find the one that matches current time
+              // This ensures lip sync works throughout the entire audio duration
+              // Use binary search for better performance with many cues
+              let matchedCue = null;
+              for (let i = 0; i < lipsync.mouthCues.length; i++) {
+                const mouthCue = lipsync.mouthCues[i];
+                if (mouthCue && typeof mouthCue.start === 'number' && typeof mouthCue.end === 'number' && mouthCue.value) {
+                  // Check if current time is within this cue's time range
+                  // Use slightly tighter bounds for more accurate sync
+                  const timeOffset = 0.01; // Small offset to prevent edge case issues
+                  if (currentAudioTime >= (mouthCue.start - timeOffset) && currentAudioTime <= (mouthCue.end + timeOffset)) {
+                    matchedCue = mouthCue;
+                    const viseme = visemesMapping[mouthCue.value];
+                    if (viseme) {
+                      activeViseme = viseme;
+                      appliedMorphTargets.push(viseme);
+                      // Use balanced lerp speed for accurate and smooth sync
+                      lerpMorphTarget(viseme, 1, 0.4);
+                    } else {
+                      console.warn(`Viseme mapping not found for: ${mouthCue.value}`);
+                    }
+                    break; // Only apply one viseme at a time
+                  }
+                }
+              }
+            } else if (Array.isArray(lipsync) && lipsync.length > 0) {
+              // Old format with array of cues
+              for (let i = 0; i < lipsync.length; i++) {
+                const cue = lipsync[i];
+                if (cue && typeof cue.start === 'number' && typeof cue.end === 'number' && cue.value) {
+                  if (currentAudioTime >= cue.start && currentAudioTime <= cue.end) {
+                    const viseme = visemesMapping[cue.value];
+                    if (viseme) {
+                      activeViseme = viseme;
+                      appliedMorphTargets.push(viseme);
+                      lerpMorphTarget(viseme, 1, 0.7);
+                    }
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // If no active cue found but audio is playing, use a neutral viseme
+            // This prevents the mouth from staying in the last position
+            if (!activeViseme && currentAudioTime > 0) {
+              // Apply a subtle closed mouth position when between cues
+              lerpMorphTarget("viseme_PP", 0.2, 0.2);
+>>>>>>> Stashed changes
             }
           }
         }
@@ -201,6 +338,19 @@ export function Avatar(props) {
         lerpMorphTarget(target, 0, 0.1);
       });
     }
+<<<<<<< Updated upstream
+=======
+
+    // Reset unused visemes - critical for smooth transitions throughout conversation
+    // This ensures visemes don't stick and transitions are smooth
+    Object.values(visemesMapping).forEach((viseme) => {
+      if (!appliedMorphTargets.includes(viseme)) {
+        // Reset visemes that aren't currently active
+        // Use slower reset for smoother, more natural transitions
+        lerpMorphTarget(viseme, 0, 0.15);
+      }
+    });
+>>>>>>> Stashed changes
   });
 
   useControls("FacialExpressions", {

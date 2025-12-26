@@ -8,7 +8,7 @@ const RETRY_DELAY = 0;
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const lipSync = async (response) => {
+const lipSync = async (response, language = "english") => {
   // Extract messages from response, preserving other properties
   const { messages, ...otherProps } = response;
   
@@ -19,7 +19,7 @@ const lipSync = async (response) => {
 
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
-          await convertTextToSpeech({ text: message.text, fileName });
+          await convertTextToSpeech({ text: message.text, fileName, language });
           await delay(RETRY_DELAY);
           break;
         } catch (error) {
@@ -30,7 +30,7 @@ const lipSync = async (response) => {
           }
         }
       }
-      console.log(`Message ${index} converted to speech`);
+      console.log(`Message ${index} converted to speech in ${language}`);
     })
   );
 
@@ -41,20 +41,38 @@ const lipSync = async (response) => {
       const jsonFileName = `audios/message_${index}.json`;
 
       try {
-        // Check if WAV file exists (Windows TTS creates WAV files)
-        let audioFile = fileName;
+        // Check which audio file exists (Windows TTS creates WAV, Google TTS creates MP3)
+        let audioFile = null;
+        let audioFormat = null;
+        
         if (fs.existsSync(wavFileName)) {
           audioFile = wavFileName;
-        } else if (!fs.existsSync(fileName)) {
-          console.warn(`Neither ${fileName} nor ${wavFileName} found`);
+          audioFormat = "wav";
+          console.log(`Using WAV file for message ${index} (${language})`);
+        } else if (fs.existsSync(fileName)) {
+          audioFile = fileName;
+          audioFormat = "mp3";
+          console.log(`Using MP3 file for message ${index} (${language})`);
+        } else {
+          console.warn(`Neither ${fileName} nor ${wavFileName} found for message ${index}`);
           // Create a placeholder if neither file exists
           const placeholder = Buffer.from([0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74, 0x20, 0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x40, 0x1f, 0x00, 0x00, 0x80, 0x3e, 0x00, 0x00, 0x02, 0x00, 0x10, 0x00, 0x64, 0x61, 0x74, 0x61, 0x00, 0x00, 0x00, 0x00]);
+          audioFile = wavFileName;
+          audioFormat = "wav";
           fs.writeFileSync(audioFile, placeholder);
         }
         
-        await getPhonemes({ message: index });
+        // Generate lip sync for all languages (language-agnostic audio processing)
+        await getPhonemes({ message: index, language });
+        
+        // Read lip sync data
+        const lipsyncData = await readJsonTranscript({ fileName: jsonFileName });
+        console.log(`Lip sync data for message ${index}:`, JSON.stringify(lipsyncData).substring(0, 200));
+        
+        // Convert audio to base64 and add format info
         message.audio = await audioFileToBase64({ fileName: audioFile });
-        message.lipsync = await readJsonTranscript({ fileName: jsonFileName });
+        message.audioFormat = audioFormat; // Add format info for frontend
+        message.lipsync = lipsyncData;
       } catch (error) {
         console.error(`Error while getting phonemes for message ${index}:`, error);
         // Create placeholder data if there's an error

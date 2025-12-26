@@ -34,3 +34,25 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# audio files
+*.mp3
+*.wav
+*.aiff
+
+# credentials
+*.json
+!package.json
+!package-lock.json
+!yarn.lock
+!tsconfig.json
+
+# test files
+test_*.js
+test_*.mjs
+*_test.js
+*_test.mjs
+
+# temporary directories
+temp_*/
+test/

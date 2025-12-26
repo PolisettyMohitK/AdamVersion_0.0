@@ -1,6 +1,8 @@
 import fs from "fs";
 import { promisify } from "util";
 import { exec } from "child_process";
+import { tmpdir } from "os";
+import { join } from "path";
 import dotenv from "dotenv";
 import { transcribeWithGoogle } from "./google-stt.mjs";
 
@@ -16,12 +18,20 @@ const execPromise = promisify(exec);
  * 3. Azure Speech-to-Text (if credentials are available)
  * 4. Fallback to a simple transcription service
  */
-async function convertAudioToText({ audioData }) {
+async function convertAudioToText({ audioData, language = "english" }) {
   try {
-    // Save audio data to a temporary file
-    const tempFilePath = `/tmp/input_audio_${Date.now()}.webm`;
-    const tempWavPath = `/tmp/input_audio_${Date.now()}.wav`;
+    console.log(`Starting STT conversion for language: ${language}`);
+    console.log(`Audio data size: ${audioData.length} bytes`);
+    
+    // Save audio data to a temporary file (cross-platform temp directory)
+    const tempDir = tmpdir();
+    const timestamp = Date.now();
+    const tempFilePath = join(tempDir, `input_audio_${timestamp}.webm`);
+    const tempWavPath = join(tempDir, `input_audio_${timestamp}.wav`);
+    
+    console.log(`Writing audio to temp file: ${tempFilePath}`);
     fs.writeFileSync(tempFilePath, audioData);
+    console.log(`Audio file written, size: ${fs.statSync(tempFilePath).size} bytes`);
     
     // Try to convert to WAV format first (needed for many STT services)
     try {
@@ -43,14 +53,27 @@ async function convertAudioToText({ audioData }) {
     };
     
     // Try Google Speech-to-Text if credentials are available
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS && fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
       try {
-        const result = await transcribeWithGoogle(tempWavPath);
-        cleanup();
-        return result;
+        console.log("Attempting Google STT...");
+        const result = await transcribeWithGoogle(tempWavPath, language);
+        if (result && result.trim() !== "") {
+          console.log("Google STT succeeded:", result);
+          cleanup();
+          return result;
+        } else {
+          console.warn("Google STT returned empty result");
+        }
       } catch (googleError) {
-        console.warn("Google STT failed:", googleError.message);
+        console.error("Google STT failed:", googleError.message);
+        console.error("Google STT error details:", googleError);
+        if (googleError.stack) {
+          console.error("Google STT stack:", googleError.stack);
+        }
       }
+    } else {
+      console.warn("GOOGLE_APPLICATION_CREDENTIALS not set or file not found, skipping Google STT");
+      console.warn("Credentials path:", process.env.GOOGLE_APPLICATION_CREDENTIALS);
     }
     
     // Try Azure Speech-to-Text if credentials are available
@@ -73,14 +96,15 @@ async function convertAudioToText({ audioData }) {
       console.warn("Local Whisper failed:", whisperError.message);
     }
     
-    // Fallback to a simple approach using built-in recognition
-    console.warn("Using fallback STT method");
+    // Fallback: Return empty string to indicate transcription failed
+    // This allows the server to handle the error appropriately
+    console.warn("All STT methods failed, returning empty transcription");
     cleanup();
-    return "Hello, this is a test transcription.";
+    return "";
     
   } catch (error) {
     console.error("STT Error:", error);
-    return "Sorry, I couldn't understand that.";
+    return "";
   }
 }
 
