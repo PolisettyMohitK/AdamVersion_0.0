@@ -7,7 +7,18 @@ dotenv.config();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const template = `
-You are an intelligent and expressive AI assistant with extensive knowledge across all subjects.
+You are a friendly, conversational AI assistant who talks like a real person. You have extensive knowledge but you explain things in a natural, easy-going way - like you're chatting with a friend.
+
+IMPORTANT STYLE GUIDELINES:
+- Write like you're speaking out loud - use natural, conversational language
+- Use contractions (I'm, you're, it's, that's) to sound more human
+- Keep sentences shorter and more digestible when spoken
+- Avoid overly formal or academic language - be friendly and approachable
+- Use everyday words instead of complex vocabulary when possible
+- Make it flow naturally - like you're having a real conversation
+- Don't sound like you're reading from a textbook or giving a formal presentation
+- Be warm, engaging, and personable
+
 You will always respond with a JSON array of messages, with a maximum of 3 messages:
 Each message has properties for text, facialExpression, and animation.
 The different facial expressions are: smile, sad, angry, surprised, funnyFace, and default.
@@ -34,7 +45,7 @@ Respond in valid JSON format with the following structure:
 {
   "messages": [
     {
-      "text": "Text to be spoken by the AI",
+      "text": "Text to be spoken by the AI - written in natural, conversational language",
       "facialExpression": "Facial expression to be used by the AI. Select from: smile, sad, angry, surprised, funnyFace, and default",
       "animation": "Animation to be used by the AI. Select from: Idle, TalkingOne, TalkingThree, SadIdle, 
           Defeated, Angry, Surprised, DismissingGesture, and ThoughtfulHeadShake."
@@ -638,60 +649,148 @@ function extractCoreSubject(question) {
 }
 
 async function generateAvatarResponse(question, language = "english") {
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   try {
-    console.log("Processing question:", question);
-    console.log("Language:", language);
+    console.log(`[Gemini] [${requestId}] ===== Processing Request =====`);
+    console.log(`[Gemini] [${requestId}] Question:`, question);
+    console.log(`[Gemini] [${requestId}] Language parameter:`, language);
+    console.log(`[Gemini] [${requestId}] Language type:`, typeof language);
+    console.log(`[Gemini] [${requestId}] Language normalized:`, language.toLowerCase());
+    console.log(`[Gemini] [${requestId}] Question length:`, question.length);
+    console.log(`[Gemini] [${requestId}] ⚠️ CRITICAL: Response MUST be in ${language.toUpperCase()} language`);
     
     // Use the gemini 2.5 flash model as requested
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
-    // Adjust template based on language
+    // Adjust template based on language - normalize first
+    const normalizedLang = language.toLowerCase().trim();
+    console.log(`[Gemini] [${requestId}] Normalized language: "${normalizedLang}"`);
+    
     let languageSpecificTemplate = template;
-    if (language === "hindi") {
-      // For Hindi, respond in Hindi and limit to 3-4 sentences
+    if (normalizedLang === "hindi" || normalizedLang === "hi") {
+      // For Hindi, respond naturally in Hindi
       languageSpecificTemplate = `${template}
 
-CRITICAL INSTRUCTIONS:
-- You MUST respond entirely in Hindi language (Devanagari script).
-- Keep your answer concise and limit it to 3-4 sentences only.
-- Be brief and to the point.
-- All text in the "text" field must be in Hindi.`;
-    } else if (language === "telugu") {
-      // For Telugu, respond in Telugu and limit to 3-4 sentences
+CRITICAL LANGUAGE INSTRUCTIONS FOR HINDI:
+- You MUST respond entirely in Hindi language using Devanagari script (हिंदी).
+- DO NOT use English words or English script. Use ONLY Devanagari script characters.
+- If the user asks in Hindi, respond in Hindi. If the user asks in English but language is set to Hindi, still respond in Hindi.
+- Respond naturally and conversationally - match the tone of the user's question.
+- CRITICAL: Keep your response SHORT - MAXIMUM 4-5 sentences. This is to save API credits.
+- For simple greetings (like "hello" or "hi" or "नमस्ते"), give a simple, friendly greeting back in Hindi (1-2 sentences).
+- For questions, provide a concise answer in EXACTLY 4-5 sentences. Do NOT exceed this limit.
+- DO NOT add unnecessary information, examples, or lengthy explanations.
+- All text in the "text" field must be in Hindi (Devanagari script).
+- Be natural and conversational, but keep it brief.
+- IMPORTANT: Your response must contain Devanagari script characters. If you cannot respond in Hindi, indicate that clearly in Hindi script.
+- REMEMBER: Shorter responses = lower costs. Always aim for 4-5 sentences maximum.`;
+    } else if (normalizedLang === "telugu" || normalizedLang === "te") {
+      // For Telugu, respond naturally in Telugu
       languageSpecificTemplate = `${template}
 
-CRITICAL INSTRUCTIONS:
-- You MUST respond entirely in Telugu language (Telugu script).
-- Keep your answer concise and limit it to 3-4 sentences only.
-- Be brief and to the point.
-- All text in the "text" field must be in Telugu.`;
+CRITICAL LANGUAGE INSTRUCTIONS FOR TELUGU:
+- You MUST respond ENTIRELY in Telugu language using Telugu script (తెలుగు).
+- DO NOT use English words or English script. Use ONLY Telugu script characters.
+- If the user asks in Telugu, respond in Telugu. If the user asks in English but language is set to Telugu, still respond in Telugu.
+- Respond naturally and conversationally - match the tone of the user's question.
+- CRITICAL: Keep your response SHORT - MAXIMUM 4-5 sentences. This is to save API credits.
+- For simple greetings (like "hello" or "hi" or "నమస్కారం"), give a simple, friendly greeting back in Telugu (1-2 sentences).
+- For questions, provide a concise answer in EXACTLY 4-5 sentences. Do NOT exceed this limit.
+- DO NOT add unnecessary information, examples, or lengthy explanations.
+- All text in the "text" field MUST be in Telugu script (తెలుగు లిపి).
+- Be natural and conversational, but keep it brief.
+- IMPORTANT: Your response must contain Telugu script characters. If you cannot respond in Telugu, indicate that clearly in Telugu script.
+- REMEMBER: Shorter responses = lower costs. Always aim for 4-5 sentences maximum.`;
+    } else {
+      // For English, ensure it stays in English
+      languageSpecificTemplate = `${template}
+
+LANGUAGE INSTRUCTIONS FOR ENGLISH:
+- Respond in English language.
+- Write like you're talking to a friend - use natural, conversational English
+- Use contractions and casual language to sound more human
+- Keep it clear and easy to understand when spoken aloud
+- Make it feel like a real conversation, not a formal response
+- Be warm, friendly, and engaging`;
     }
     
-    const prompt = `${languageSpecificTemplate}\n\nHuman: ${question}\nAI:`;
-    console.log("Sending prompt to Gemini:", prompt.substring(0, 100) + "...");
+    // Add explicit language instruction at the start of prompt for Telugu/Hindi
+    let finalPrompt = languageSpecificTemplate;
+    if (normalizedLang === "telugu" || normalizedLang === "te") {
+      finalPrompt = `⚠️⚠️⚠️ CRITICAL LANGUAGE REQUIREMENT ⚠️⚠️⚠️
+The user has SELECTED TELUGU as their language preference.
+You MUST respond ENTIRELY in Telugu script (తెలుగు లిపి).
+DO NOT use English words, English script, or any other language.
+Even if the user's question appears in English (due to transcription), you MUST still respond in Telugu.
+This is NON-NEGOTIABLE. The user expects a Telugu response.
+
+${languageSpecificTemplate}`;
+    } else if (normalizedLang === "hindi" || normalizedLang === "hi") {
+      finalPrompt = `⚠️⚠️⚠️ CRITICAL LANGUAGE REQUIREMENT ⚠️⚠️⚠️
+The user has SELECTED HINDI as their language preference.
+You MUST respond ENTIRELY in Hindi script (हिंदी/Devanagari).
+DO NOT use English words, English script, or any other language.
+Even if the user's question appears in English (due to transcription), you MUST still respond in Hindi.
+This is NON-NEGOTIABLE. The user expects a Hindi response.
+
+${languageSpecificTemplate}`;
+    }
+    
+    const prompt = `${finalPrompt}\n\nHuman: ${question}\nAI:`;
+    console.log(`[Gemini] [${requestId}] Sending prompt to Gemini (first 300 chars):`, prompt.substring(0, 300) + "...");
+    console.log(`[Gemini] [${requestId}] Full question:`, question);
+    console.log(`[Gemini] [${requestId}] Language context: ${normalizedLang.toUpperCase()}`);
     
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
     
-    console.log("Raw Gemini response:", text.substring(0, 100) + "...");
+    console.log(`[Gemini] [${requestId}] Raw Gemini response (first 200 chars):`, text.substring(0, 200) + "...");
+    console.log(`[Gemini] [${requestId}] Full response length:`, text.length);
     
     // Try to parse the JSON response
     try {
       const parsedResponse = JSON.parse(text);
       const validatedResponse = responseSchema.parse(parsedResponse);
-      console.log("Successfully parsed and validated response");
+      console.log(`[Gemini] [${requestId}] ✅ Successfully parsed and validated response`);
+      console.log(`[Gemini] [${requestId}] Response messages:`, validatedResponse.messages.map(m => m.text.substring(0, 50) + "..."));
+      
+      // Validate language for Hindi/Telugu responses - use normalized language
+      const checkLang = normalizedLang;
+      if (checkLang === "telugu" || checkLang === "te") {
+        const teluguScriptRegex = /[\u0C00-\u0C7F]/;
+        const allMessages = validatedResponse.messages.map(m => m.text).join(' ');
+        const hasTeluguScript = teluguScriptRegex.test(allMessages);
+        if (!hasTeluguScript) {
+          console.warn(`[Gemini] [${requestId}] ⚠️ WARNING: Response does not contain Telugu script! Response: ${allMessages.substring(0, 100)}`);
+          // Force a Telugu response
+          validatedResponse.messages[0].text = "క్షమించండి, నేను తెలుగులో మాత్రమే ప్రతిస్పందించగలను. దయచేసి మీ ప్రశ్నను తెలుగులో అడగండి.";
+        } else {
+          console.log(`[Gemini] [${requestId}] ✅ Response contains Telugu script`);
+        }
+      } else if (checkLang === "hindi" || checkLang === "hi") {
+        const hindiScriptRegex = /[\u0900-\u097F]/;
+        const allMessages = validatedResponse.messages.map(m => m.text).join(' ');
+        const hasHindiScript = hindiScriptRegex.test(allMessages);
+        if (!hasHindiScript) {
+          console.warn(`[Gemini] [${requestId}] ⚠️ WARNING: Response does not contain Hindi script! Response: ${allMessages.substring(0, 100)}`);
+          // Force a Hindi response
+          validatedResponse.messages[0].text = "क्षमा करें, मैं केवल हिंदी में उत्तर दे सकता हूं। कृपया अपना प्रश्न हिंदी में पूछें।";
+        } else {
+          console.log(`[Gemini] [${requestId}] ✅ Response contains Hindi script`);
+        }
+      }
       
       // Add image URLs to the response
       const responseText = validatedResponse.messages.map(m => m.text).join(' ');
       validatedResponse.images = await generateImageUrls(question, responseText);
-      console.log("Generated images:", validatedResponse.images);
+      console.log(`[Gemini] [${requestId}] Generated ${validatedResponse.images.length} images`);
       
       return validatedResponse;
     } catch (parseError) {
       // If parsing fails, create a default response
-      console.error("Error parsing Gemini response:", parseError);
-      console.error("Raw response that failed to parse:", text);
+      console.error(`[Gemini] [${requestId}] ❌ Error parsing Gemini response:`, parseError);
+      console.error(`[Gemini] [${requestId}] Raw response that failed to parse:`, text);
       const defaultResponse = {
         messages: [
           {
@@ -705,7 +804,9 @@ CRITICAL INSTRUCTIONS:
       return defaultResponse;
     }
   } catch (error) {
-    console.error("Error generating response with Gemini:", error);
+    console.error(`[Gemini] [${requestId}] ❌ Error generating response with Gemini:`, error);
+    console.error(`[Gemini] [${requestId}] Error message:`, error.message);
+    console.error(`[Gemini] [${requestId}] Error stack:`, error.stack);
     
     // Handle quota exceeded error specifically
     if (error.status === 429) {
@@ -739,20 +840,12 @@ CRITICAL INSTRUCTIONS:
   }
 }
 
-<<<<<<< Updated upstream
-// New function for generating chat summaries
-=======
 // Function to generate chat summary
->>>>>>> Stashed changes
 async function generateChatSummary(chatHistory) {
   try {
     console.log("Generating summary for chat history...");
     
-<<<<<<< Updated upstream
-    // Use the gemini 2.5 flash model as requested
-=======
     // Use the gemini 2.5 flash model
->>>>>>> Stashed changes
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
     // Format the chat history for the prompt
@@ -761,26 +854,6 @@ async function generateChatSummary(chatHistory) {
       return `${sender}: ${msg.text}`;
     }).join('\n');
     
-<<<<<<< Updated upstream
-    const summaryTemplate = `
-    You are an intelligent and expressive AI assistant. Your task is to create a concise, informative summary of the conversation between a user and an AI assistant.
-    
-    Please follow these guidelines:
-    1. Provide a clear overview of the main topics discussed
-    2. Highlight any important decisions, agreements, or conclusions reached
-    3. Mention any questions asked and answers provided
-    4. Keep the summary concise but comprehensive
-    5. Use natural language and avoid technical jargon when possible
-    
-    Conversation History:
-    ${formattedHistory}
-    
-    Please provide a summary of this conversation in a natural, readable format.
-    `;
-    
-    console.log("Sending summary prompt to Gemini...");
-    const result = await model.generateContent(summaryTemplate);
-=======
     const summaryPrompt = `You are an intelligent AI assistant. Your task is to create a concise, informative summary of the conversation between a user and an AI assistant.
 
 Please follow these guidelines:
@@ -798,23 +871,17 @@ Please provide a summary of this conversation in a natural, readable format.`;
     
     console.log("Sending summary prompt to Gemini...");
     const result = await model.generateContent(summaryPrompt);
->>>>>>> Stashed changes
     const response = await result.response;
     const summaryText = response.text();
     
     console.log("Successfully generated chat summary");
-<<<<<<< Updated upstream
-    return summaryText;
-=======
     return summaryText.trim();
->>>>>>> Stashed changes
   } catch (error) {
     console.error("Error generating chat summary:", error);
     throw error;
   }
 }
 
-<<<<<<< Updated upstream
 // New function for generating retention tests
 async function generateRetentionTest(chatHistory) {
   try {
@@ -957,6 +1024,3 @@ async function generatePersonalizedFeedback(testResults, chatHistory) {
 }
 
 export { generateAvatarResponse, generateChatSummary, generateRetentionTest, generatePersonalizedFeedback, extractCoreSubject, fetchWikimediaImages, generateImageUrls };
-=======
-export { generateAvatarResponse, generateChatSummary };
->>>>>>> Stashed changes

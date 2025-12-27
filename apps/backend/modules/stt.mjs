@@ -55,14 +55,16 @@ async function convertAudioToText({ audioData, language = "english" }) {
     // Try Google Speech-to-Text if credentials are available
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS && fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
       try {
-        console.log("Attempting Google STT...");
+        console.log(`[STT] Attempting Google STT with language: ${language}`);
+        console.log(`[STT] Language will be mapped to appropriate Google STT language code`);
         const result = await transcribeWithGoogle(tempWavPath, language);
         if (result && result.trim() !== "") {
-          console.log("Google STT succeeded:", result);
+          console.log(`[STT] ✅ Google STT succeeded: "${result}"`);
+          console.log(`[STT] Transcription length: ${result.length} characters`);
           cleanup();
           return result;
         } else {
-          console.warn("Google STT returned empty result");
+          console.warn("[STT] ⚠️ Google STT returned empty result");
         }
       } catch (googleError) {
         console.error("Google STT failed:", googleError.message);

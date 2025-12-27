@@ -1,82 +1,64 @@
 import fs from "fs";
 import { execSync } from "child_process";
 import { promisify } from "util";
+import { join, dirname } from "path";
 import dotenv from "dotenv";
-import { convertTextToSpeechWithModel } from "./indian-tts.mjs";
-import { convertTextToSpeechOnline } from "./online-tts.mjs";
-import { convertTextToSpeechWaveNet } from "./google-wavenet-tts.mjs";
+import { synthesizeSpeech as googleTTS } from "./google-tts.mjs";
 
 dotenv.config();
 
 const exec = promisify(execSync);
 
 /**
- * Convert text to speech using various TTS solutions
- * This implementation uses different approaches based on language:
+ * Convert text to speech
  * 
- * For English:
- * - Uses local/system TTS (Windows PowerShell, macOS say, Linux espeak)
+ * Language routing:
+ * - English: Local system TTS (Windows PowerShell, macOS say, Linux espeak)
+ * - Hindi/Telugu: Google Cloud TTS (requires GOOGLE_APPLICATION_CREDENTIALS)
  * 
- * For Hindi and Telugu:
- * 1. Google Cloud Text-to-Speech with Standard voices (primary)
- * 2. FastPitch + HiFi-GAN models (fallback, if available)
- * 3. Online TTS APIs (fallback)
- * 4. Platform-specific TTS (last resort)
- * 
- * Fallback: Simple placeholder audio
+ * @param {string} text - Text to convert to speech
+ * @param {string} fileName - Output file path
+ * @param {string} language - Language: "english", "hindi", "telugu" (optional, defaults to "english")
  */
-
 async function convertTextToSpeech({ text, fileName, language = "english" }) {
-  try {
-    console.log(`Converting text to speech: ${text.substring(0, 50)}... (Language: ${language})`);
-    
-    // For Hindi and Telugu, use Google Cloud TTS with Standard voices
-    if (language === "hindi" || language === "telugu") {
-      if (process.env.GOOGLE_APPLICATION_CREDENTIALS && fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
-        try {
-          console.log(`Attempting Google Cloud TTS (Standard voices) for ${language}...`);
-          await convertTextToSpeechWaveNet({ text, fileName, language });
-          console.log(`Successfully converted using Google Cloud TTS for ${language}`);
-          return;
-        } catch (googleTtsError) {
-          console.warn(`Google Cloud TTS failed for ${language}:`, googleTtsError.message);
-          // Fall through to other TTS methods
-        }
-      } else {
-        console.warn("GOOGLE_APPLICATION_CREDENTIALS not set or file not found, skipping Google Cloud TTS");
-      }
+  // Normalize language
+  const lang = language.toLowerCase();
+  
+  // Route Hindi and Telugu to Google Cloud TTS
+  if (lang === "hindi" || lang === "hi" || lang === "telugu" || lang === "te") {
+    try {
+      console.log(`[TTS] ===== Using Google Cloud TTS for ${language} =====`);
+      console.log(`[TTS] Text length: ${text.length} characters`);
+      console.log(`[TTS] Text preview: ${text.substring(0, 100)}...`);
       
-      // Fallback: Try using the FastPitch + HiFi-GAN models
-      try {
-        console.log(`Attempting to use ${language} TTS model...`);
-        const result = await convertTextToSpeechWithModel({ text, fileName, language });
-        if (result === true) {
-          console.log(`Successfully converted using ${language} TTS model`);
-          return;
-        } else {
-          console.warn(`Model-based TTS returned false for ${language}, models may not be available`);
-        }
-      } catch (modelError) {
-        console.error(`Model-based TTS failed for ${language}:`, modelError.message);
-        console.error(`Stack trace:`, modelError.stack);
-        // Fall through to default TTS
+      // Ensure fileName is MP3 for Google TTS
+      const mp3FileName = fileName.endsWith('.mp3') ? fileName : fileName.replace(/\.(wav|aiff)$/, '.mp3');
+      console.log(`[TTS] Output file: ${mp3FileName}`);
+      console.log(`[TTS] Language code: ${lang}`);
+      
+      await googleTTS(text, lang, mp3FileName);
+      
+      // Verify file was created
+      if (fs.existsSync(mp3FileName)) {
+        const stats = fs.statSync(mp3FileName);
+        console.log(`[TTS] ✅ Google Cloud TTS successful: ${mp3FileName} (${stats.size} bytes)`);
+        return;
+      } else {
+        throw new Error(`Google TTS file not created: ${mp3FileName}`);
       }
-      // If we reach here, model TTS failed - try using online TTS APIs as fallback
-      console.log(`Falling back to online TTS API for ${language}...`);
-      try {
-        const onlineResult = await convertTextToSpeechOnline({ text, fileName, language });
-        if (onlineResult) {
-          console.log(`Successfully converted using online TTS for ${language}`);
-          return;
-        }
-      } catch (onlineError) {
-        console.warn(`Online TTS also failed for ${language}:`, onlineError.message);
-        // Continue to default system TTS
-      }
+    } catch (error) {
+      console.error(`[TTS] ❌ Google Cloud TTS failed for ${language}:`, error.message);
+      console.error(`[TTS] Error stack:`, error.stack);
+      // Don't fall back to local TTS for Hindi/Telugu - throw error instead
+      throw new Error(`Failed to generate ${language} TTS: ${error.message}`);
     }
-    
-    // For English, use local/system TTS (skip Google Cloud TTS)
-    console.log("Using local/system TTS for English");
+  }
+  
+  // Use local TTS for English or as fallback
+  console.log(`[TTS] Using local TTS for ${language}`);
+  
+  try {
+    console.log(`Converting text to speech: ${text.substring(0, 50)}...`);
     
     // Try different TTS solutions based on the platform
     const platform = process.platform;
@@ -174,3 +156,4 @@ function createPlaceholderAudio(fileName) {
 }
 
 export { convertTextToSpeech };
+

@@ -34,13 +34,18 @@ export const SpeechProvider = ({ children }) => {
       const base64Audio = reader.result.split(",")[1];
       setLoading(true);
       console.log("=== Frontend: Sending audio to STS endpoint ===");
+      console.log("Selected language:", selectedLanguage);
+      console.log("Language type:", typeof selectedLanguage);
+      console.log("⚠️ CRITICAL: This language will be used for STT, Gemini, and TTS");
       try {
+        const requestBody = { audio: base64Audio, language: selectedLanguage };
+        console.log("Request body (language field):", requestBody.language);
         const data = await fetch(`${backendUrl}/sts`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ audio: base64Audio, language: selectedLanguage }),
+          body: JSON.stringify(requestBody),
         });
         
         console.log("Response status:", data.status);
@@ -160,6 +165,9 @@ export const SpeechProvider = ({ children }) => {
 
   const tts = async (messageText, language = selectedLanguage) => {
     setLoading(true);
+    console.log("=== Frontend: Sending TTS request ===");
+    console.log("Message:", messageText);
+    console.log("Language:", language || selectedLanguage);
     try {
       const data = await fetch(`${backendUrl}/tts`, {
         method: "POST",
@@ -168,7 +176,25 @@ export const SpeechProvider = ({ children }) => {
         },
         body: JSON.stringify({ message: messageText, language: language || selectedLanguage }),
       });
+      
+      console.log("Response status:", data.status);
+      
+      if (!data.ok) {
+        const errorText = await data.text();
+        console.error("Error response from server:", errorText);
+        let errorMessage = "Sorry, there was an error processing your request.";
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error || errorMessage;
+        } catch (e) {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(`Server error: ${data.status} - ${errorMessage}`);
+      }
+      
       const response = await data.json();
+      console.log("=== Frontend: Received TTS response ===");
+      console.log("Full response:", response);
       
       // Handle messages - simplified to handle both array and object formats
       let responseMessages = [];
@@ -176,6 +202,13 @@ export const SpeechProvider = ({ children }) => {
         responseMessages = response;
       } else if (response.messages && Array.isArray(response.messages)) {
         responseMessages = response.messages;
+      } else if (response.error) {
+        console.error("Error in response:", response.error);
+        responseMessages = [{
+          text: response.errorMessage || response.error || "Sorry, there was an error processing your request.",
+          facialExpression: "sad",
+          animation: "SadIdle"
+        }];
       }
       
       // Handle images
@@ -183,17 +216,34 @@ export const SpeechProvider = ({ children }) => {
         console.log("Setting current images (TTS):", response.images);
         setCurrentImages(response.images);
       } else {
-        console.log("No images in TTS response:", response);
+        console.log("No images in TTS response");
       }
       
       if (responseMessages.length > 0) {
-        console.log("Received messages from TTS:", responseMessages);
+        console.log("Adding messages to queue:", responseMessages);
         setMessages((messages) => [...messages, ...responseMessages]);
+      } else {
+        console.warn("No messages found in TTS response!");
+        // Add a fallback message so user knows something went wrong
+        setMessages((messages) => [...messages, {
+          text: "I'm sorry, I didn't receive a proper response. Please try again.",
+          facialExpression: "sad",
+          animation: "SadIdle"
+        }]);
       }
     } catch (error) {
-      console.error("Error in tts:", error);
+      console.error("=== Frontend: Error in tts ===");
+      console.error("Error:", error);
+      console.error("Error message:", error.message);
+      // Add error message to queue so user knows something went wrong
+      setMessages((messages) => [...messages, {
+        text: `Sorry, there was an error: ${error.message}. Please check if the backend server is running.`,
+        facialExpression: "sad",
+        animation: "SadIdle"
+      }]);
     } finally {
       setLoading(false);
+      console.log("=== Frontend: TTS request completed ===");
     }
   };
 

@@ -80,50 +80,6 @@ const getPhonemes = async ({ message, language = "english" }) => {
       }
     }
     
-<<<<<<< Updated upstream
-    // Check if rhubarb is available
-    let rhubarbAvailable = false;
-    try {
-      // Try different ways to check if rhubarb is available
-      try {
-        await execCommand({ command: "./bin/rhubarb --help" });
-        rhubarbAvailable = true;
-      } catch (helpError) {
-        // Try just running rhubarb without arguments
-        try {
-          await execCommand({ command: "./bin/rhubarb" });
-          rhubarbAvailable = true;
-        } catch (runError) {
-          console.log("Rhubarb not found or not executable");
-        }
-      }
-    } catch (checkError) {
-      console.log("Could not check Rhubarb availability");
-    }
-    
-    if (!rhubarbAvailable) {
-      console.warn("Rhubarb not found, creating enhanced placeholder lip sync data");
-      // Create a more dynamic placeholder JSON file with correct format
-      const audioStats = fs.statSync(`audios/message_${message}.wav`);
-      const audioDuration = audioStats.size / 44100; // Rough estimation
-      
-      // Create more varied and realistic mouth cues
-      const vowels = ["A", "B", "C", "D", "E", "F"];
-      const mouthCues = [];
-      let currentTime = 0;
-      const segmentDuration = Math.min(0.2, audioDuration / 10);
-      
-      while (currentTime < audioDuration && mouthCues.length < 20) {
-        const vowel = vowels[Math.floor(Math.random() * vowels.length)];
-        mouthCues.push({
-          start: currentTime,
-          end: Math.min(currentTime + segmentDuration, audioDuration),
-          value: vowel
-        });
-        currentTime += segmentDuration;
-      }
-      
-=======
     // Ensure WAV file exists and is readable
     if (!fs.existsSync(wavFile)) {
       console.error(`WAV file does not exist: ${wavFile}`);
@@ -162,56 +118,30 @@ const getPhonemes = async ({ message, language = "english" }) => {
     } catch (rhubarbError) {
       console.warn("Rhubarb not found, creating placeholder lip sync data");
       // Create a simple placeholder JSON file with correct format
->>>>>>> Stashed changes
+      const audioStats = fs.statSync(wavFile);
+      const audioDuration = audioStats.size / 44100; // Rough estimation
+      
+      // Create more varied and realistic mouth cues
+      const vowels = ["A", "B", "C", "D", "E", "F"];
+      const mouthCues = [];
+      let currentTime = 0;
+      const segmentDuration = Math.min(0.2, audioDuration / 10);
+      
+      while (currentTime < audioDuration && mouthCues.length < 20) {
+        const vowel = vowels[Math.floor(Math.random() * vowels.length)];
+        mouthCues.push({
+          start: currentTime,
+          end: Math.min(currentTime + segmentDuration, audioDuration),
+          value: vowel
+        });
+        currentTime += segmentDuration;
+      }
+      
       const placeholderData = {
         mouthCues: mouthCues
       };
       fs.writeFileSync(jsonFile, JSON.stringify(placeholderData));
       return;
-    }
-    
-<<<<<<< Updated upstream
-    if (rhubarbAvailable) {
-      try {
-        await execCommand({
-          command: `./bin/rhubarb -f json -o audios/message_${message}.json audios/message_${message}.wav -r phonetic`,
-        });
-        // -r phonetic is faster but less accurate
-        console.log(`Lip sync done in ${new Date().getTime() - time}ms`);
-      } catch (rhubarbExecError) {
-        console.error(`Error running Rhubarb for message ${message}:`, rhubarbExecError);
-        // Fall back to enhanced placeholder
-        console.warn("Falling back to enhanced placeholder lip sync data");
-        // Create a more dynamic placeholder JSON file with correct format
-        const audioStats = fs.statSync(`audios/message_${message}.wav`);
-        const audioDuration = audioStats.size / 44100; // Rough estimation
-        
-        // Create more varied and realistic mouth cues
-        const vowels = ["A", "B", "C", "D", "E", "F"];
-        const mouthCues = [];
-        let currentTime = 0;
-        const segmentDuration = Math.min(0.2, audioDuration / 10);
-        
-        while (currentTime < audioDuration && mouthCues.length < 20) {
-          const vowel = vowels[Math.floor(Math.random() * vowels.length)];
-          mouthCues.push({
-            start: currentTime,
-            end: Math.min(currentTime + segmentDuration, audioDuration),
-            value: vowel
-          });
-          currentTime += segmentDuration;
-        }
-        
-        const placeholderData = {
-          mouthCues: mouthCues
-        };
-        fs.writeFileSync(`audios/message_${message}.json`, JSON.stringify(placeholderData));
-      }
-    }
-=======
-    // Ensure WAV file exists before running Rhubarb
-    if (!fs.existsSync(wavFile)) {
-      throw new Error(`WAV file does not exist: ${wavFile}`);
     }
     
     // Generate lip sync data using Rhubarb
@@ -289,7 +219,6 @@ const getPhonemes = async ({ message, language = "english" }) => {
       console.error(`Error parsing lip sync JSON:`, parseError.message);
       throw parseError;
     }
->>>>>>> Stashed changes
   } catch (error) {
     console.error(`Error while getting phonemes for message ${message} (${language}):`, error);
     console.error(`Error stack:`, error.stack);

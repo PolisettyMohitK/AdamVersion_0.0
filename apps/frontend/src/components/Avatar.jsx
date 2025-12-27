@@ -43,8 +43,7 @@ export function Avatar(props) {
         
         const audio = new Audio(`data:${mimeType};base64,${message.audio}`);
         
-<<<<<<< Updated upstream
-        // Add event listeners for debugging
+        // Add event listeners for debugging and playback
         audio.addEventListener('loadedmetadata', () => {
           console.log(`Audio duration: ${audio.duration}`);
         });
@@ -53,14 +52,6 @@ export function Avatar(props) {
           console.log('Audio started playing');
         });
         
-        audio.addEventListener('timeupdate', () => {
-          // Uncomment for detailed timing debug
-          // console.log(`Audio current time: ${audio.currentTime}`);
-        });
-        
-        audio.play().catch(error => {
-          console.error("Error playing audio:", error);
-=======
         // Handle audio loading and playback
         const handleCanPlay = () => {
           console.log("Audio ready, duration:", audio.duration, "format:", audioFormat);
@@ -91,10 +82,6 @@ export function Avatar(props) {
         };
         
         audio.addEventListener('canplay', handleCanPlay, { once: true });
-        audio.addEventListener('loadedmetadata', () => {
-          console.log("Audio metadata loaded, duration:", audio.duration);
->>>>>>> Stashed changes
-        });
         
         audio.addEventListener('error', (e) => {
           console.error(`${audioFormat} audio error, trying alternative format:`, e);
@@ -211,46 +198,7 @@ export function Avatar(props) {
     lerpMorphTarget("eyeBlinkLeft", blink ? 1 : 0, 0.5);
     lerpMorphTarget("eyeBlinkRight", blink ? 1 : 0, 0.5);
 
-<<<<<<< Updated upstream
-    // Handle lipsync with direct processing (no state delay)
-    if (message && lipsync && audio) {
-      try {
-        const currentAudioTime = audio.currentTime;
-        
-        // Directly calculate and apply visemes in this frame
-        const activeTargets = new Set();
-        
-        if (lipsync.mouthCues) {
-          // Process all cues to find active ones
-          lipsync.mouthCues.forEach((mouthCue) => {
-            if (currentAudioTime >= mouthCue.start && currentAudioTime <= mouthCue.end) {
-              const target = visemesMapping[mouthCue.value];
-              if (target) {
-                // Calculate progress within this cue (0 to 1)
-                const progress = (currentAudioTime - mouthCue.start) / (mouthCue.end - mouthCue.start);
-                // Ease in/out for smoother transitions
-                const easedProgress = progress < 0.5 
-                  ? 2 * progress * progress 
-                  : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-                
-                lerpMorphTarget(target, easedProgress, 0.3);
-                activeTargets.add(target);
-              }
-            }
-          });
-          
-          // If no active cues but we're near the end, hold the last viseme
-          if (activeTargets.size === 0 && lipsync.mouthCues.length > 0) {
-            const lastCue = lipsync.mouthCues[lipsync.mouthCues.length - 1];
-            if (currentAudioTime > lastCue.end && currentAudioTime < lastCue.end + 0.3) {
-              const target = visemesMapping[lastCue.value];
-              if (target) {
-                lerpMorphTarget(target, 0.4, 0.2);
-                activeTargets.add(target);
-              }
-=======
     // Handle lipsync - sync with audio playback throughout entire conversation
-    // Based on reference implementation: https://github.com/asanchezyali/talking-avatar-with-ai
     const appliedMorphTargets = [];
     if (message && lipsync && audio) {
       try {
@@ -268,26 +216,38 @@ export function Avatar(props) {
             if (lipsync.mouthCues && Array.isArray(lipsync.mouthCues) && lipsync.mouthCues.length > 0) {
               // Process all cues - find the one that matches current time
               // This ensures lip sync works throughout the entire audio duration
-              // Use binary search for better performance with many cues
-              let matchedCue = null;
               for (let i = 0; i < lipsync.mouthCues.length; i++) {
                 const mouthCue = lipsync.mouthCues[i];
                 if (mouthCue && typeof mouthCue.start === 'number' && typeof mouthCue.end === 'number' && mouthCue.value) {
                   // Check if current time is within this cue's time range
-                  // Use slightly tighter bounds for more accurate sync
-                  const timeOffset = 0.01; // Small offset to prevent edge case issues
-                  if (currentAudioTime >= (mouthCue.start - timeOffset) && currentAudioTime <= (mouthCue.end + timeOffset)) {
-                    matchedCue = mouthCue;
+                  if (currentAudioTime >= mouthCue.start && currentAudioTime <= mouthCue.end) {
                     const viseme = visemesMapping[mouthCue.value];
                     if (viseme) {
                       activeViseme = viseme;
                       appliedMorphTargets.push(viseme);
-                      // Use balanced lerp speed for accurate and smooth sync
-                      lerpMorphTarget(viseme, 1, 0.4);
+                      // Calculate progress within this cue (0 to 1) for smoother transitions
+                      const progress = (currentAudioTime - mouthCue.start) / (mouthCue.end - mouthCue.start);
+                      // Ease in/out for smoother transitions
+                      const easedProgress = progress < 0.5 
+                        ? 2 * progress * progress 
+                        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+                      lerpMorphTarget(viseme, easedProgress, 0.3);
                     } else {
                       console.warn(`Viseme mapping not found for: ${mouthCue.value}`);
                     }
                     break; // Only apply one viseme at a time
+                  }
+                }
+              }
+              
+              // If no active cues but we're near the end, hold the last viseme
+              if (appliedMorphTargets.length === 0 && lipsync.mouthCues.length > 0) {
+                const lastCue = lipsync.mouthCues[lipsync.mouthCues.length - 1];
+                if (currentAudioTime > lastCue.end && currentAudioTime < lastCue.end + 0.3) {
+                  const viseme = visemesMapping[lastCue.value];
+                  if (viseme) {
+                    lerpMorphTarget(viseme, 0.4, 0.2);
+                    appliedMorphTargets.push(viseme);
                   }
                 }
               }
@@ -311,35 +271,25 @@ export function Avatar(props) {
             
             // If no active cue found but audio is playing, use a neutral viseme
             // This prevents the mouth from staying in the last position
-            if (!activeViseme && currentAudioTime > 0) {
+            if (!activeViseme && currentAudioTime > 0 && appliedMorphTargets.length === 0) {
               // Apply a subtle closed mouth position when between cues
               lerpMorphTarget("viseme_PP", 0.2, 0.2);
->>>>>>> Stashed changes
             }
           }
         }
-        
-        // Reset unused visemes with appropriate speed
-        Object.values(visemesMapping).forEach((target) => {
-          if (!activeTargets.has(target)) {
-            lerpMorphTarget(target, 0, 0.15);
-          }
-        });
       } catch (error) {
         console.error("Error processing lipsync:", error);
         // Fallback: reset all visemes
-        Object.values(visemesMapping).forEach((target) => {
-          lerpMorphTarget(target, 0, 0.1);
+        Object.values(visemesMapping).forEach((viseme) => {
+          lerpMorphTarget(viseme, 0, 0.1);
         });
       }
     } else {
       // Reset all visemes when not processing lipsync
-      Object.values(visemesMapping).forEach((target) => {
-        lerpMorphTarget(target, 0, 0.1);
+      Object.values(visemesMapping).forEach((viseme) => {
+        lerpMorphTarget(viseme, 0, 0.1);
       });
     }
-<<<<<<< Updated upstream
-=======
 
     // Reset unused visemes - critical for smooth transitions throughout conversation
     // This ensures visemes don't stick and transitions are smooth
@@ -350,7 +300,6 @@ export function Avatar(props) {
         lerpMorphTarget(viseme, 0, 0.15);
       }
     });
->>>>>>> Stashed changes
   });
 
   useControls("FacialExpressions", {
@@ -489,4 +438,5 @@ export function Avatar(props) {
   );
 }
 
+useGLTF.preload("/models/avatar.glb");
 useGLTF.preload("/models/avatar.glb");

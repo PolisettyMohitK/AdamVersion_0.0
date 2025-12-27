@@ -18,9 +18,10 @@ dotenv.config();
 
 async function transcribeWithGoogle(audioFilePath, language = "english") {
   try {
-    console.log(`Transcribing with Google STT, language: ${language}`);
-    console.log(`Audio file: ${audioFilePath}`);
-    console.log(`File exists: ${fs.existsSync(audioFilePath)}`);
+    console.log(`[Google STT] ===== Starting transcription =====`);
+    console.log(`[Google STT] Language parameter: ${language}`);
+    console.log(`[Google STT] Audio file: ${audioFilePath}`);
+    console.log(`[Google STT] File exists: ${fs.existsSync(audioFilePath)}`);
     
     if (!fs.existsSync(audioFilePath)) {
       throw new Error(`Audio file not found: ${audioFilePath}`);
@@ -52,29 +53,58 @@ async function transcribeWithGoogle(audioFilePath, language = "english") {
     const apiUrl = 'https://speech.googleapis.com/v1/speech:recognize';
     
     // Map language to Google STT language codes
-    const languageMap = {
-      english: 'en-US',
-      hindi: 'hi-IN',
-      telugu: 'te-IN'
-    };
+    // Handle all variations: "english", "en", "hindi", "hi", "telugu", "te"
+    const lang = language.toLowerCase().trim();
+    let languageCode = 'en-US'; // Default to English
+    let alternativeLanguageCodes = []; // Alternative codes to try if primary fails
     
-    const languageCode = languageMap[language.toLowerCase()] || 'en-US';
-    console.log(`Using language code: ${languageCode}`);
+    if (lang === 'hindi' || lang === 'hi') {
+      languageCode = 'hi-IN';
+      alternativeLanguageCodes = ['hi']; // Fallback to generic Hindi
+      console.log(`[Google STT] ✅ Hindi selected - using language code: ${languageCode}`);
+    } else if (lang === 'telugu' || lang === 'te') {
+      languageCode = 'te-IN';
+      alternativeLanguageCodes = ['te']; // Fallback to generic Telugu
+      console.log(`[Google STT] ✅ Telugu selected - using language code: ${languageCode}`);
+    } else if (lang === 'english' || lang === 'en') {
+      languageCode = 'en-US';
+      alternativeLanguageCodes = ['en-GB', 'en'];
+      console.log(`[Google STT] ✅ English selected - using language code: ${languageCode}`);
+    } else {
+      console.warn(`[Google STT] ⚠️ Unknown language: ${language}, defaulting to en-US`);
+    }
+    
+    console.log(`[Google STT] ===== Language Configuration =====`);
+    console.log(`[Google STT] Input language parameter: "${language}"`);
+    console.log(`[Google STT] Normalized language: "${lang}"`);
+    console.log(`[Google STT] Primary language code: ${languageCode}`);
+    console.log(`[Google STT] Alternative codes: ${alternativeLanguageCodes.join(', ') || 'none'}`);
+    console.log(`[Google STT] ⚠️ CRITICAL: Transcription will be in ${languageCode}`);
     
     const requestBody = {
       config: {
         encoding: 'LINEAR16', // LINEAR16 is for WAV files
         sampleRateHertz: 16000,
-        languageCode: languageCode,
+        languageCode: languageCode, // CRITICAL: This determines transcription language
         enableAutomaticPunctuation: true,
         enableWordTimeOffsets: false,
+        // Add alternative language hints for better accuracy
+        alternativeLanguageCodes: alternativeLanguageCodes.length > 0 ? alternativeLanguageCodes : undefined,
       },
       audio: {
         content: audioBytes,
       },
     };
     
-    console.log(`Sending request to Google STT API...`);
+    // Remove undefined fields
+    if (!requestBody.config.alternativeLanguageCodes) {
+      delete requestBody.config.alternativeLanguageCodes;
+    }
+    
+    console.log(`[Google STT] ===== Sending Request to Google STT API =====`);
+    console.log(`[Google STT] Request config:`, JSON.stringify(requestBody.config, null, 2));
+    console.log(`[Google STT] ⚠️ CRITICAL: languageCode is set to: ${languageCode}`);
+    console.log(`[Google STT] This will transcribe audio in ${languageCode} language`);
 
     // Make request to v1 REST API
     const response = await fetch(apiUrl, {
@@ -100,11 +130,16 @@ async function transcribeWithGoogle(audioFilePath, language = "english") {
     }
 
     const data = await response.json();
-    console.log("Google STT API response:", JSON.stringify(data, null, 2));
+    console.log(`[Google STT] ===== API Response Received =====`);
+    console.log(`[Google STT] Response:`, JSON.stringify(data, null, 2));
     
     if (!data.results || data.results.length === 0) {
-      console.warn('No transcription results returned');
-      console.warn('Full API response:', JSON.stringify(data, null, 2));
+      console.warn(`[Google STT] ⚠️ No transcription results returned`);
+      console.warn(`[Google STT] Full API response:`, JSON.stringify(data, null, 2));
+      console.warn(`[Google STT] This might indicate:`);
+      console.warn(`[Google STT]   1. Audio quality too poor`);
+      console.warn(`[Google STT]   2. Language code ${languageCode} not supported`);
+      console.warn(`[Google STT]   3. Audio format issues`);
       return '';
     }
 
@@ -112,7 +147,29 @@ async function transcribeWithGoogle(audioFilePath, language = "english") {
       .map(result => result.alternatives[0].transcript)
       .join('\n');
       
-    console.log(`Transcription: ${transcription}`);
+    console.log(`[Google STT] ===== Transcription Result =====`);
+    console.log(`[Google STT] Transcribed text: "${transcription}"`);
+    console.log(`[Google STT] Transcription length: ${transcription.length} characters`);
+    
+    // Validate transcription language matches requested language
+    if (lang === 'telugu' || lang === 'te') {
+      const teluguScriptRegex = /[\u0C00-\u0C7F]/;
+      const hasTelugu = teluguScriptRegex.test(transcription);
+      console.log(`[Google STT] Transcription contains Telugu script: ${hasTelugu ? '✅ YES' : '❌ NO'}`);
+      if (!hasTelugu && transcription.length > 0) {
+        console.warn(`[Google STT] ⚠️ WARNING: Requested Telugu but transcription appears to be in English or another language`);
+        console.warn(`[Google STT] Transcription: "${transcription}"`);
+      }
+    } else if (lang === 'hindi' || lang === 'hi') {
+      const hindiScriptRegex = /[\u0900-\u097F]/;
+      const hasHindi = hindiScriptRegex.test(transcription);
+      console.log(`[Google STT] Transcription contains Hindi script: ${hasHindi ? '✅ YES' : '❌ NO'}`);
+      if (!hasHindi && transcription.length > 0) {
+        console.warn(`[Google STT] ⚠️ WARNING: Requested Hindi but transcription appears to be in English or another language`);
+        console.warn(`[Google STT] Transcription: "${transcription}"`);
+      }
+    }
+    
     return transcription;
   } catch (error) {
     console.error('Google STT Error:', error);
