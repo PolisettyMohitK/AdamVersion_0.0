@@ -20,28 +20,38 @@ let credentialsPath = null;
  * Creates a temporary credentials file from environment variable if needed
  */
 export function initializeGoogleCredentials() {
-    // If file path is already set and file exists, use it
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS &&
-        fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
-        console.log('[Credentials] Using file-based credentials:', process.env.GOOGLE_APPLICATION_CREDENTIALS);
-        credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    const googleAppCreds = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    const googleJsonCreds = process.env.GOOGLE_CREDENTIALS_JSON;
+
+    // Helper to check if string is JSON
+    const isJson = (str) => {
+        if (!str) return false;
+        try {
+            const parsed = JSON.parse(str);
+            return parsed && typeof parsed === 'object' && parsed.type === 'service_account';
+        } catch (e) {
+            return false;
+        }
+    };
+
+    // 1. Check if GOOGLE_APPLICATION_CREDENTIALS is already a valid file
+    if (googleAppCreds && !isJson(googleAppCreds) && fs.existsSync(googleAppCreds)) {
+        console.log('[Credentials] Using file-based credentials:', googleAppCreds);
+        credentialsPath = googleAppCreds;
         return credentialsPath;
     }
 
-    // Check for JSON content in environment variable (for cloud deployment)
-    const jsonCredentials = process.env.GOOGLE_CREDENTIALS_JSON;
+    // 2. Check if either variable contains the RAW JSON content
+    const rawJson = isJson(googleAppCreds) ? googleAppCreds : (isJson(googleJsonCreds) ? googleJsonCreds : null);
 
-    if (jsonCredentials) {
+    if (rawJson) {
         try {
-            // Validate it's valid JSON
-            JSON.parse(jsonCredentials);
-
             // Create a temporary file to store credentials
             const tempDir = os.tmpdir();
-            const credFile = path.join(tempDir, 'google-credentials.json');
+            const credFile = path.join(tempDir, `google-creds-${Date.now()}.json`);
 
-            fs.writeFileSync(credFile, jsonCredentials, 'utf8');
-            console.log('[Credentials] Created temporary credentials file from GOOGLE_CREDENTIALS_JSON');
+            fs.writeFileSync(credFile, rawJson, 'utf8');
+            console.log('[Credentials] Created temporary credentials file from raw JSON content');
 
             // Set the environment variable to point to the temp file
             process.env.GOOGLE_APPLICATION_CREDENTIALS = credFile;
@@ -49,15 +59,13 @@ export function initializeGoogleCredentials() {
 
             return credentialsPath;
         } catch (error) {
-            console.error('[Credentials] Failed to parse GOOGLE_CREDENTIALS_JSON:', error.message);
-            throw new Error('GOOGLE_CREDENTIALS_JSON environment variable contains invalid JSON');
+            console.error('[Credentials] Failed to create temp credentials file:', error.message);
+            throw new Error(`Failed to initialize Google credentials: ${error.message}`);
         }
     }
 
-    console.warn('[Credentials] No Google credentials configured. STT/TTS features will be disabled.');
-    console.warn('[Credentials] Set either:');
-    console.warn('[Credentials]   - GOOGLE_APPLICATION_CREDENTIALS (path to JSON file) for local development');
-    console.warn('[Credentials]   - GOOGLE_CREDENTIALS_JSON (JSON content) for cloud deployment');
+    console.warn('[Credentials] No valid Google credentials found.');
+    console.warn('[Credentials] Please set GOOGLE_CREDENTIALS_JSON to your service account JSON content.');
 
     return null;
 }
