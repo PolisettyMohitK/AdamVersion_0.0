@@ -1,3 +1,11 @@
+// Initialize credentials FIRST (before any modules that use Google APIs)
+import dotenv from "dotenv";
+dotenv.config();
+
+// Initialize Google credentials from environment variable (for cloud deployment)
+// MUST be before importing stt.mjs or any Google API modules
+import { initializeGoogleCredentials, hasGoogleCredentials } from "./modules/credentials.mjs";
+
 import express from "express";
 import cors from "cors";
 import multer from "multer";
@@ -8,10 +16,6 @@ import { generateAvatarResponse, generateChatSummary, generateRetentionTest, gen
 // TTS removed
 import { lipSync } from "./modules/lip-sync.mjs";
 import { convertAudioToText } from "./modules/stt.mjs";
-import dotenv from "dotenv";
-
-// Initialize credentials from environment variable (for cloud deployment)
-import { initializeGoogleCredentials, hasGoogleCredentials } from "./modules/credentials.mjs";
 
 // Lazy import pdf-parse to avoid initialization issues with test files
 let pdfParseFunction = null;
