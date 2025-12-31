@@ -10,6 +10,9 @@ import { lipSync } from "./modules/lip-sync.mjs";
 import { convertAudioToText } from "./modules/stt.mjs";
 import dotenv from "dotenv";
 
+// Initialize credentials from environment variable (for cloud deployment)
+import { initializeGoogleCredentials, hasGoogleCredentials } from "./modules/credentials.mjs";
+
 // Lazy import pdf-parse to avoid initialization issues with test files
 let pdfParseFunction = null;
 const getPdfParse = async () => {
@@ -720,7 +723,7 @@ app.post("/retention-test/feedback", async (req, res) => {
   }
 });
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`Jack are listening on port ${port}`);
-  console.log("Yo...");
+  console.log(`Server accessible at http://localhost:${port} and on your local network`);
 });

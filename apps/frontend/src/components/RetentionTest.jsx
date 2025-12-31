@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSpeech } from "../hooks/useSpeech";
+import BACKEND_URL from "../config/api";
 
 export const RetentionTest = ({ chatHistory, onClose }) => {
   const { tts, stopAudio } = useSpeech();
@@ -23,7 +24,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:3002/retention-test/generate", {
+      const response = await fetch(`${BACKEND_URL}/retention-test/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -52,7 +53,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
   // Handle answer selection
   const handleAnswerSelect = (questionId, optionId) => {
     if (showResults) return; // Don't allow changes after submitting
-    
+
     setSelectedAnswers(prev => ({
       ...prev,
       [questionId]: optionId
@@ -71,7 +72,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
     }
 
     setShowResults(true);
-    
+
     // Prepare test results for feedback
     const testResults = {
       testTitle: test.testTitle,
@@ -94,11 +95,11 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
   // Calculate test score
   const calculateScore = () => {
     if (!test) return 0;
-    
-    const correctCount = test.questions.filter(q => 
+
+    const correctCount = test.questions.filter(q =>
       selectedAnswers[q.id] === q.correctAnswer
     ).length;
-    
+
     return Math.round((correctCount / test.questions.length) * 100);
   };
 
@@ -108,7 +109,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:3002/retention-test/feedback", {
+      const response = await fetch(`${BACKEND_URL}/retention-test/feedback`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -122,7 +123,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
 
       const feedbackData = await response.json();
       setFeedback(feedbackData.feedback);
-      
+
       // Speak the feedback through the avatar
       tts(feedbackData.feedback);
     } catch (err) {
@@ -176,7 +177,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
         <div className="bg-gray-800 rounded-lg p-8 max-w-2xl w-full mx-4">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-white">Retention Test</h2>
-            <button 
+            <button
               onClick={onClose}
               className="text-gray-400 hover:text-white"
             >
@@ -185,7 +186,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
               </svg>
             </button>
           </div>
-          
+
           <div className="bg-red-900 bg-opacity-50 border border-red-700 rounded-lg p-4 mb-6">
             <div className="flex items-center text-red-200">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -195,7 +196,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
             </div>
             <p className="mt-2 text-red-100">{error}</p>
           </div>
-          
+
           <div className="flex justify-end space-x-3">
             <button
               onClick={onClose}
@@ -226,7 +227,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
             <h2 className="text-2xl font-bold text-white">{test.testTitle}</h2>
             <p className="text-gray-400">Test your knowledge based on our conversation</p>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="text-gray-400 hover:text-white"
           >
@@ -246,7 +247,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
                 </svg>
                 <h3 className="text-xl font-bold text-white">Your Test Results</h3>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-purple-800 rounded-lg p-4 text-center">
                   <div className="text-3xl font-bold text-white">{calculateScore()}%</div>
@@ -265,7 +266,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
                   <div className="text-amber-200">Incorrect Answers</div>
                 </div>
               </div>
-              
+
               <div className="border-t border-gray-700 pt-4">
                 <h4 className="text-lg font-semibold text-white mb-3">Personalized Feedback</h4>
                 <div className="prose prose-invert max-w-none">
@@ -273,7 +274,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex justify-between">
               <button
                 onClick={resetTest}
@@ -296,23 +297,21 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
           /* Results Review View */
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-white">Review Your Answers</h3>
-            
+
             <div className="space-y-4">
               {test.questions.map((question, index) => {
                 const selectedAnswer = selectedAnswers[question.id];
                 const isCorrect = selectedAnswer === question.correctAnswer;
-                
+
                 return (
-                  <div 
-                    key={question.id} 
-                    className={`border rounded-lg p-4 ${
-                      isCorrect ? 'border-green-500 bg-green-900 bg-opacity-20' : 'border-red-500 bg-red-900 bg-opacity-20'
-                    }`}
+                  <div
+                    key={question.id}
+                    className={`border rounded-lg p-4 ${isCorrect ? 'border-green-500 bg-green-900 bg-opacity-20' : 'border-red-500 bg-red-900 bg-opacity-20'
+                      }`}
                   >
                     <div className="flex items-start mb-3">
-                      <div className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center mr-3 ${
-                        isCorrect ? 'bg-green-500' : 'bg-red-500'
-                      }`}>
+                      <div className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center mr-3 ${isCorrect ? 'bg-green-500' : 'bg-red-500'
+                        }`}>
                         <span className="text-white text-sm font-bold">
                           {index + 1}
                         </span>
@@ -325,7 +324,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="ml-9 space-y-2">
                       <div className="flex items-center">
                         <span className="text-sm font-medium text-gray-400 mr-2">Your answer:</span>
@@ -333,7 +332,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
                           {selectedAnswer || 'Not answered'}
                         </span>
                       </div>
-                      
+
                       {!isCorrect && (
                         <div className="flex items-center">
                           <span className="text-sm font-medium text-gray-400 mr-2">Correct answer:</span>
@@ -342,7 +341,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
                           </span>
                         </div>
                       )}
-                      
+
                       <div className="mt-3 p-3 bg-gray-700 rounded-lg">
                         <p className="text-gray-200 text-sm whitespace-pre-wrap">{question.explanation}</p>
                       </div>
@@ -351,7 +350,7 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
                 );
               })}
             </div>
-            
+
             <div className="flex justify-end">
               <button
                 onClick={submitTest}
@@ -377,39 +376,37 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
           <div className="space-y-6">
             {/* Progress Bar */}
             <div className="w-full bg-gray-700 rounded-full h-2.5">
-              <div 
-                className="bg-indigo-600 h-2.5 rounded-full" 
+              <div
+                className="bg-indigo-600 h-2.5 rounded-full"
                 style={{ width: `${((currentQuestionIndex + 1) / test.questions.length) * 100}%` }}
               ></div>
             </div>
-            
+
             <div className="flex justify-between text-sm text-gray-400">
               <span>Question {currentQuestionIndex + 1} of {test.questions.length}</span>
               <span>{test.questions[currentQuestionIndex].topic}</span>
             </div>
-            
+
             {/* Question */}
             <div className="bg-gray-700 rounded-lg p-6">
               <h3 className="text-xl font-medium text-white mb-6">{currentQuestion.question}</h3>
-              
+
               <div className="space-y-3">
                 {currentQuestion.options.map((option) => {
                   const isSelected = selectedAnswers[currentQuestion.id] === option.id;
-                  
+
                   return (
                     <button
                       key={option.id}
                       onClick={() => handleAnswerSelect(currentQuestion.id, option.id)}
-                      className={`w-full text-left p-4 rounded-lg transition-colors ${
-                        isSelected 
-                          ? 'bg-indigo-600 border-indigo-500' 
+                      className={`w-full text-left p-4 rounded-lg transition-colors ${isSelected
+                          ? 'bg-indigo-600 border-indigo-500'
                           : 'bg-gray-600 hover:bg-gray-500 border-gray-500'
-                      } border`}
+                        } border`}
                     >
                       <div className="flex items-center">
-                        <div className={`flex-shrink-0 h-6 w-6 rounded-full border flex items-center justify-center mr-4 ${
-                          isSelected ? 'border-indigo-300' : 'border-gray-400'
-                        }`}>
+                        <div className={`flex-shrink-0 h-6 w-6 rounded-full border flex items-center justify-center mr-4 ${isSelected ? 'border-indigo-300' : 'border-gray-400'
+                          }`}>
                           {isSelected && (
                             <div className="h-3 w-3 rounded-full bg-indigo-300"></div>
                           )}
@@ -421,33 +418,31 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
                 })}
               </div>
             </div>
-            
+
             {/* Navigation */}
             <div className="flex justify-between">
               <button
                 onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
                 disabled={isFirstQuestion}
-                className={`px-6 py-3 rounded-lg transition-colors flex items-center ${
-                  isFirstQuestion 
-                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
+                className={`px-6 py-3 rounded-lg transition-colors flex items-center ${isFirstQuestion
+                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                     : 'bg-gray-600 text-white hover:bg-gray-500'
-                }`}
+                  }`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
                 Previous
               </button>
-              
+
               {isLastQuestion ? (
                 <button
                   onClick={submitTest}
                   disabled={!selectedAnswers[currentQuestion.id]}
-                  className={`px-6 py-3 rounded-lg transition-colors flex items-center ${
-                    selectedAnswers[currentQuestion.id]
+                  className={`px-6 py-3 rounded-lg transition-colors flex items-center ${selectedAnswers[currentQuestion.id]
                       ? 'bg-green-600 text-white hover:bg-green-700'
                       : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                  }`}
+                    }`}
                 >
                   Submit Test
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -458,11 +453,10 @@ export const RetentionTest = ({ chatHistory, onClose }) => {
                 <button
                   onClick={() => setCurrentQuestionIndex(prev => Math.min(test.questions.length - 1, prev + 1))}
                   disabled={!selectedAnswers[currentQuestion.id]}
-                  className={`px-6 py-3 rounded-lg transition-colors flex items-center ${
-                    selectedAnswers[currentQuestion.id]
+                  className={`px-6 py-3 rounded-lg transition-colors flex items-center ${selectedAnswers[currentQuestion.id]
                       ? 'bg-indigo-600 text-white hover:bg-indigo-700'
                       : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                  }`}
+                    }`}
                 >
                   Next
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

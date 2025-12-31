@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, useRef } from "react";
-
-const backendUrl = "http://localhost:3002"; // Changed from 3001 to 3002
+import BACKEND_URL from "../config/api";
 
 const SpeechContext = createContext();
 
@@ -48,7 +47,7 @@ export const SpeechProvider = ({ children }) => {
       try {
         const requestBody = { audio: base64Audio, language: selectedLanguageRef.current };
         console.log("Request body (language field):", requestBody.language);
-        const data = await fetch(`${backendUrl}/sts`, {
+        const data = await fetch(`${BACKEND_URL}/sts`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -136,13 +135,21 @@ export const SpeechProvider = ({ children }) => {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // Check if mediaDevices is available (may not be on HTTP on mobile)
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.warn("MediaDevices API not available. Voice recording will be disabled. This is common on mobile browsers over HTTP - HTTPS is required for microphone access.");
+        return;
+      }
+
       navigator.mediaDevices
         .getUserMedia({ audio: true })
         .then((stream) => {
           // Detect supported codecs
           const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
             ? 'audio/webm;codecs=opus'
-            : 'audio/webm';
+            : MediaRecorder.isTypeSupported('audio/webm')
+              ? 'audio/webm'
+              : 'audio/mp4'; // Fallback for iOS Safari
 
           console.log(`Using MIME type for recording: ${mimeType}`);
 
@@ -170,7 +177,7 @@ export const SpeechProvider = ({ children }) => {
         })
         .catch((err) => {
           console.error("Error accessing microphone:", err);
-          // Potential UI notification for blocked microphone
+          // Microphone access denied or not available - app continues to work
         });
     }
   }, []);
@@ -195,7 +202,7 @@ export const SpeechProvider = ({ children }) => {
     console.log("Message:", messageText);
     console.log("Language:", language || selectedLanguage);
     try {
-      const data = await fetch(`${backendUrl}/tts`, {
+      const data = await fetch(`${BACKEND_URL}/tts`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
